@@ -30,6 +30,7 @@
             "@radix-ui/react-toggle": "^1.1.2",
             "@radix-ui/react-toggle-group": "^1.1.2",
             "@radix-ui/react-tooltip": "^1.1.8",
+            "bcrypt": "^6.0.0",
             "class-variance-authority": "^0.7.1",
             "clsx": "*",
             "cmdk": "^1.1.1",
@@ -40,6 +41,7 @@
             "input-otp": "^1.4.2",
             "lucide-react": "^0.487.0",
             "morgan": "^1.10.1",
+            "mysql2": "^3.15.3",
             "next-themes": "^0.4.6",
             "react": "^18.3.1",
             "react-day-picker": "^8.10.1",
@@ -57,6 +59,7 @@
             "@types/morgan": "^1.9.10",
             "@types/node": "^20.19.21",
             "@vitejs/plugin-react-swc": "^3.10.2",
+            "nodemon": "^3.1.10",
             "prisma": "^6.17.1",
             "ts-node": "^10.9.2",
             "typescript": "^5.9.3",
@@ -64,7 +67,8 @@
       },
       "scripts": {
             "dev": "vite",
-            "server": "ts-node -P tsconfig.server.json server/index.ts",
+            "server": "node server/src/index.js",
+            "dev-server": "nodemon server/src/index.js",
             "build": "vite build",
             "start": "node build/server.js",
             "prisma": "prisma migrate dev"
