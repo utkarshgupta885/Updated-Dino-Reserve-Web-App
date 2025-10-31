@@ -1,0 +1,178 @@
+{
+  "info": {
+    "name": "Dino Reserve API",
+    "description": "Complete API collection for Dino Reserve restaurant management system",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:4000/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "4000",
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Get All Restaurants",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:4000/api/restaurants",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "4000",
+          "path": ["api", "restaurants"]
+        }
+      }
+    },
+    {
+      "name": "Get Restaurant Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:4000/api/restaurants/1/status",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "4000",
+          "path": ["api", "restaurants", "1", "status"]
+        }
+      }
+    },
+    {
+      "name": "Get Tables for Restaurant",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:4000/api/tables?restaurantId=1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "4000",
+          "path": ["api", "tables"],
+          "query": [
+            {
+              "key": "restaurantId",
+              "value": "1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create Reservation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tableId\": 1,\n  \"customerName\": \"John Dino\",\n  \"customerPhone\": \"555-0123\",\n  \"partySize\": 4,\n  \"reservationTime\": \"2024-01-20T19:00:00Z\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:4000/api/reservations",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "4000",
+          "path": ["api", "reservations"]
+        }
+      }
+    },
+    {
+      "name": "Update Reservation Status",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"confirmed\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:4000/api/reservations/1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "4000",
+          "path": ["api", "reservations", "1"]
+        }
+      }
+    },
+    {
+      "name": "Delete Reservation",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:4000/api/reservations/1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "4000",
+          "path": ["api", "reservations", "1"]
+        }
+      }
+    },
+    {
+      "name": "Register Manager",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"manager1\",\n  \"email\": \"manager@dinoreserve.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:4000/api/auth/register",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "4000",
+          "path": ["api", "auth", "register"]
+        }
+      }
+    },
+    {
+      "name": "Login Manager",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"manager1\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:4000/api/auth/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "4000",
+          "path": ["api", "auth", "login"]
+        }
+      }
+    }
+  ]
+}
+
