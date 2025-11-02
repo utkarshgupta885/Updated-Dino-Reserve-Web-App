@@ -147,21 +147,23 @@ const createReservation = async (req, res) => {
 };
 
 // Get all reservations
+// Get all reservations
 const getReservations = async (req, res) => {
   try {
     const { restaurantId } = req.query;
-    
-    // This would need to be implemented in the database service
-    // For now, return a placeholder response
+
+    // Fetch from dbService
+    const reservations = await dbService.getReservations(restaurantId);
+
     res.json({
       message: 'Reservations retrieved successfully',
-      data: []
+      data: reservations
     });
   } catch (error) {
     console.error('Get reservations error:', error);
     res.status(500).json({ 
       error: 'Internal server error',
-      message: 'Failed to retrieve reservations'
+      message: error.message || 'Failed to retrieve reservations'
     });
   }
 };

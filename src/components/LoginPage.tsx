@@ -14,29 +14,57 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simple validation for demo
-    if (username && email && password) {
-      onLogin(username);
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:4000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username, // backend accepts either username or email
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // If successful, call onLogin with manager name
+      onLogin(data.manager.username);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-orange-50 to-yellow-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4 relative z-10">
       <ThemeToggle />
-      
+
       <div className="w-full max-w-md">
+        {/* header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
             <span className="text-4xl">🦕</span>
             <h1 className="text-4xl font-bold text-green-700 dark:text-green-400">Dino Reserve</h1>
             <span className="text-4xl">🦖</span>
           </div>
-          <p className="text-gray-600 dark:text-gray-300">Welcome to your prehistoric dining manager!</p>
+          <p className="text-gray-600 dark:text-gray-300">
+            Welcome to your prehistoric dining manager!
+          </p>
         </div>
 
+        {/* login card */}
         <Card className="shadow-lg border-2 border-green-200 dark:border-green-700 bg-white dark:bg-gray-800">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 w-24 h-24 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
@@ -61,7 +89,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   placeholder="e.g., Rex Manager"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="border-green-200 dark:border-green-700 focus:border-green-400 dark:focus:border-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   required
                 />
               </div>
@@ -73,8 +100,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   placeholder="manager@dinoreserve.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="border-green-200 dark:border-green-700 focus:border-green-400 dark:focus:border-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  required
                 />
               </div>
               <div className="space-y-2">
@@ -85,15 +110,18 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="border-green-200 dark:border-green-700 focus:border-green-400 dark:focus:border-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   required
                 />
               </div>
-              <Button 
-                type="submit" 
+
+              {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+
+              <Button
+                type="submit"
                 className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-white"
+                disabled={loading}
               >
-                🦕 Enter Dino Reserve 🦖
+                {loading ? 'Logging in...' : '🦕 Enter Dino Reserve 🦖'}
               </Button>
             </form>
           </CardContent>

@@ -6,7 +6,7 @@ const USE_PRISMA = process.env.USE_PRISMA === 'true';
 const DB_CONFIG = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'root',
+  password: process.env.DB_PASSWORD || 'Bond@007',
   database: process.env.DB_NAME || 'dino_reserve'
 };
 
@@ -48,7 +48,7 @@ class DatabaseService {
 
       // Get restaurant info
       const [restaurants] = await connection.execute(
-        'SELECT id, name, dinoIcon FROM restaurants WHERE id = ?',
+        'SELECT id, name, dino_icon FROM restaurants WHERE id = ?',
         [restaurantId]
       );
 
@@ -60,21 +60,21 @@ class DatabaseService {
       const [counts] = await connection.execute(`
         SELECT 
           COUNT(*) as total_tables,
-          SUM(CASE WHEN isReserved = 0 THEN 1 ELSE 0 END) as available_tables,
-          SUM(CASE WHEN isReserved = 1 THEN 1 ELSE 0 END) as feeding_tables
+          SUM(CASE WHEN is_reserved = 0 THEN 1 ELSE 0 END) as available_tables,
+          SUM(CASE WHEN is_reserved = 1 THEN 1 ELSE 0 END) as feeding_tables
         FROM tables 
-        WHERE restaurantId = ?
+        WHERE restaurant_id = ?
       `, [restaurantId]);
 
       // Get all tables with reservation info
       const [tables] = await connection.execute(`
         SELECT 
-          t.id, t.number, t.isReserved, t.restaurantId,
-          r.customerName, r.customerPhone, r.partySize, 
-          r.reservationTime, r.status
+          t.id, t.number, t.is_reserved, t.restaurant_id,
+          r.customer_name, r.customer_phone, r.party_size, 
+          r.reservation_time, r.status
         FROM tables t
-        LEFT JOIN reservations r ON t.id = r.tableId AND r.status IN ('pending', 'confirmed')
-        WHERE t.restaurantId = ?
+        LEFT JOIN reservations r ON t.id = r.table_id AND r.status IN ('pending', 'confirmed')
+        WHERE t.restaurant_id = ?
         ORDER BY t.number
       `, [restaurantId]);
 
@@ -154,62 +154,126 @@ class DatabaseService {
     }
   }
 
-  async createReservationMySQL(data) {
-    const { tableId, customerName, customerPhone, partySize, reservationTime } = data;
+async createReservationMySQL(data) {
+  const { tableId, customerName, customerPhone, partySize, reservationTime } = data;
+  const connection = await this.pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // Check if table exists and is available
+    const [tables] = await connection.execute(
+      'SELECT id, restaurant_id, is_reserved FROM tables WHERE id = ?',
+      [tableId]
+    );
+
+    if (tables.length === 0) {
+      throw new Error('Table not found');
+    }
+
+    if (tables[0].is_reserved) {
+      throw new Error('Table is already reserved');
+    }
+
+    // --- Convert ISO datetime to MySQL-friendly format ---
+    // e.g. 2025-11-10T19:00:00Z → 2025-11-10 19:00:00
+    const formattedTime = new Date(reservationTime)
+      .toISOString()
+      .slice(0, 19)
+      .replace('T', ' ');
+
+    // --- Create reservation ---
+    const [result] = await connection.execute(
+      'INSERT INTO reservations (customer_name, customer_phone, party_size, reservation_time, table_id, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [customerName, customerPhone, partySize, formattedTime, tableId, 'pending']
+    );
+
+    // --- Mark table as reserved ---
+    await connection.execute(
+      'UPDATE tables SET is_reserved = TRUE WHERE id = ?',
+      [tableId]
+    );
+
+    // --- Get updated restaurant status ---
+    const restaurantStatus = await this.getRestaurantStatusMySQL(tables[0].restaurant_id);
+
+    await connection.commit();
+
+    return {
+      reservation: {
+        id: result.insertId,
+        customerName,
+        customerPhone,
+        partySize,
+        reservationTime: formattedTime,
+        tableId,
+        status: 'pending'
+      },
+      restaurantStatus
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+
+  async getReservations(restaurantId = null) {
+    if (this.usePrisma) {
+      return await this.getReservationsPrisma(restaurantId);
+    } else {
+      return await this.getReservationsMySQL(restaurantId);
+    }
+  }
+
+  async getReservationsMySQL(restaurantId = null) {
     const connection = await this.pool.getConnection();
-    
     try {
-      await connection.beginTransaction();
+      let query = `
+        SELECT r.id, r.customer_name, r.customer_phone, r.party_size,
+               r.reservation_time, r.status, r.table_id, 
+               t.number AS table_number, t.restaurant_id,
+               res.name AS restaurant_name
+        FROM reservations r
+        JOIN tables t ON r.table_id = t.id
+        JOIN restaurants res ON t.restaurant_id = res.id
+      `;
+      const params = [];
 
-      // Check if table exists and is available
-      const [tables] = await connection.execute(
-        'SELECT id, restaurantId, isReserved FROM tables WHERE id = ?',
-        [tableId]
-      );
-
-      if (tables.length === 0) {
-        throw new Error('Table not found');
+      // If restaurantId provided, filter by it
+      if (restaurantId) {
+        query += ' WHERE res.id = ?';
+        params.push(restaurantId);
       }
 
-      if (tables[0].isReserved) {
-        throw new Error('Table is already reserved');
-      }
+      query += ' ORDER BY r.created_at DESC';
 
-      // Create reservation
-      const [result] = await connection.execute(
-        'INSERT INTO reservations (customerName, customerPhone, partySize, reservationTime, tableId, status) VALUES (?, ?, ?, ?, ?, ?)',
-        [customerName, customerPhone, partySize, reservationTime, tableId, 'pending']
-      );
-
-      // Mark table as reserved
-      await connection.execute(
-        'UPDATE tables SET isReserved = TRUE WHERE id = ?',
-        [tableId]
-      );
-
-      // Get updated restaurant status
-      const restaurantStatus = await this.getRestaurantStatusMySQL(tables[0].restaurantId);
-
-      await connection.commit();
-
-      return {
-        reservation: {
-          id: result.insertId,
-          customerName,
-          customerPhone,
-          partySize,
-          reservationTime,
-          tableId,
-          status: 'pending'
-        },
-        restaurantStatus
-      };
+      const [rows] = await connection.execute(query, params);
+      return rows;
     } catch (error) {
-      await connection.rollback();
+      console.error('❌ getReservationsMySQL error:', error);
       throw error;
     } finally {
       connection.release();
     }
+  }
+
+  async getReservationsPrisma(restaurantId = null) {
+    const where = restaurantId ? { table: { restaurantId: parseInt(restaurantId) } } : {};
+
+    return await this.prisma.reservation.findMany({
+      where,
+      include: {
+        table: {
+          include: {
+            restaurant: true
+          }
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    });
   }
 
   async createReservationPrisma(data) {
@@ -282,9 +346,9 @@ class DatabaseService {
 
       // Get reservation with table info
       const [reservations] = await connection.execute(`
-        SELECT r.id, r.tableId, r.status, t.restaurantId
+        SELECT r.id, r.table_id, r.status, t.restaurant_id
         FROM reservations r
-        JOIN tables t ON r.tableId = t.id
+        JOIN tables t ON r.table_id = t.id
         WHERE r.id = ?
       `, [reservationId]);
 
@@ -413,19 +477,19 @@ class DatabaseService {
           id INT AUTO_INCREMENT PRIMARY KEY,
           number INT NOT NULL,
           isReserved BOOLEAN DEFAULT FALSE,
-          restaurantId INT NOT NULL,
+          restaurant_id INT NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (restaurantId) REFERENCES restaurants(id) ON DELETE CASCADE
+          FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
         )
       `);
 
       await connection.execute(`
         CREATE TABLE IF NOT EXISTS reservations (
           id INT AUTO_INCREMENT PRIMARY KEY,
-          customerName VARCHAR(100) NOT NULL,
-          customerPhone VARCHAR(20) NOT NULL,
-          partySize INT NOT NULL,
-          reservationTime DATETIME NOT NULL,
+          customer_name VARCHAR(100) NOT NULL,
+          customer_phone VARCHAR(20) NOT NULL,
+          party_size INT NOT NULL,
+          reservation_time DATETIME NOT NULL,
           status ENUM('pending', 'confirmed', 'completed', 'cancelled') DEFAULT 'pending',
           tableId INT NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -439,7 +503,7 @@ class DatabaseService {
         const dinoIcons = ['trex', 'stego', 'trike', 'brachio', 'raptor'];
         for (let i = 0; i < 5; i++) {
           await connection.execute(
-            'INSERT INTO restaurants (name, dinoIcon) VALUES (?, ?)',
+            'INSERT INTO restaurants (name, dino_icon) VALUES (?, ?)',
             [`Dino Diner #${i + 1}`, dinoIcons[i]]
           );
         }
@@ -451,7 +515,7 @@ class DatabaseService {
         for (let restaurantId = 1; restaurantId <= 5; restaurantId++) {
           for (let tableNumber = 1; tableNumber <= 25; tableNumber++) {
             await connection.execute(
-              'INSERT INTO tables (number, restaurantId) VALUES (?, ?)',
+              'INSERT INTO tables (number, restaurant_id) VALUES (?, ?)',
               [tableNumber, restaurantId]
             );
           }

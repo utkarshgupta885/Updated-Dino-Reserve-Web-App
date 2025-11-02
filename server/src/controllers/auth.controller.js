@@ -1,12 +1,14 @@
 const bcrypt = require('bcrypt');
 const { pool } = require('../db');
 
-// Register a new manager
+// ==============================
+// REGISTER MANAGER
+// ==============================
 const register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    // Validate input
+    // Input validation
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'All fields are required' });
     }
@@ -15,7 +17,7 @@ const register = async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    // Check if user already exists
+    // Check if username or email already exists
     const [existingUser] = await pool.execute(
       'SELECT id FROM managers WHERE username = ? OR email = ?',
       [username, email]
@@ -25,9 +27,8 @@ const register = async (req, res) => {
       return res.status(400).json({ error: 'Username or email already exists' });
     }
 
-    // Hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    // Hash password before saving
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert new manager
     const [result] = await pool.execute(
@@ -40,8 +41,8 @@ const register = async (req, res) => {
       manager: {
         id: result.insertId,
         username,
-        email
-      }
+        email,
+      },
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -49,42 +50,48 @@ const register = async (req, res) => {
   }
 };
 
-// Login manager
+// ==============================
+// LOGIN MANAGER
+// ==============================
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Validate input
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
-    // Find manager
-    const [managers] = await pool.execute(
+    // Fetch manager by username or email
+    const [rows] = await pool.execute(
       'SELECT id, username, email, password FROM managers WHERE username = ? OR email = ?',
       [username, username]
     );
 
-    if (managers.length === 0) {
+    if (rows.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const manager = managers[0];
+    const manager = rows[0];
+
+    // Optional: restrict login only to Utkarsh Gupta
+    if (manager.username !== 'Utkarsh Gupta') {
+      return res.status(403).json({ error: 'Access denied: Unauthorized manager' });
+    }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, manager.password);
-    if (!isValidPassword) {
+    const isPasswordValid = await bcrypt.compare(password, manager.password);
+    if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Return manager info (without password)
+    // Respond with manager info (omit password)
     res.json({
       message: 'Login successful',
       manager: {
         id: manager.id,
         username: manager.username,
-        email: manager.email
-      }
+        email: manager.email,
+      },
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -94,5 +101,5 @@ const login = async (req, res) => {
 
 module.exports = {
   register,
-  login
+  login,
 };
